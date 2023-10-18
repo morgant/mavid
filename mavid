@@ -2,17 +2,45 @@
 
 # mavid - make video
 #
-# Record screencasts of X11 screen or window
+# Record screencasts of X11 screen or portion of screen
 
+sndio="$(sndioctl -n server.device)"
+fps=30
+_X="$(xwininfo -root | grep "Absolute upper-left X" | cut -d " " -f 7)"
+_Y="$(xwininfo -root | grep "Absolute upper-left Y" | cut -d " " -f 7)"
+_W="$(xwininfo -root | grep "Width" | cut -d " " -f 4)"
+_H="$(xwininfo -root | grep "Height" | cut -d " " -f 4)"
 
-# get X window ID
-xwid="$(xwininfo | grep 'Window id:' | awk '{print $4}')"
+if [ "$1" = "-s" ]; then
+  shift
+  # select portion of X display to record
+  _slop="$(slop -f "%x %y %w %h")"
+  _X="$(echo "$_slop" | cut -d " " -f 1)"
+  _Y="$(echo "$_slop" | cut -d " " -f 2)"
+  _W="$(echo "$_slop" | cut -d " " -f 3)"
+  _H="$(echo "$_slop" | cut -d " " -f 4)"
+fi
 
-# use gstreamer to capture video of that X window
-gst-launch-1.0 \
-  ximagesrc xid=${xwid} use-damage=0 \
-  ! videoconvert \
-  ! queue \
-  ! x264enc pass=5 quantizer=26 speed-preset=6 \
-  ! mp4mux fragment-duration=500 \
-  ! filesink location="$1"
+resolution="${_W}x${_H}"
+offset="+${_X},${_Y}"
+
+# use ffmpeg to capture losslesss video of the display area, plus lossless audio
+ffmpeg \
+  -f sndio \
+    -i "snd/${sndio}" \
+    -c:a aac \
+    -b:a 256k \
+    -f nut pipe:1 \
+| ffmpeg \
+  -f nut \
+    -i pipe:0 \
+  -video_size "$resolution" \
+  -f x11grab \
+    -i "${DISPLAY}${offset}" \
+    -r "$fps" \
+    -c:v libx264rgb \
+    -crf 0 \
+    -preset ultrafast \
+    -color_range 2 \
+  -c:a copy \
+  "${1}.mkv"
