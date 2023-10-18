@@ -2,8 +2,9 @@
 
 # mavid - make video
 #
-# Record screencasts of X11 screen or portion of screen
+# Record lossless screencasts of X11 screen or portion of screen
 
+container="mkv"
 sndio="$(sndioctl -n server.device)"
 fps=30
 _X="$(xwininfo -root | grep "Absolute upper-left X" | cut -d " " -f 7)"
@@ -28,8 +29,7 @@ offset="+${_X},${_Y}"
 ffmpeg \
   -f sndio \
     -i "snd/${sndio}" \
-    -c:a aac \
-    -b:a 256k \
+    -c:a flac \
     -f nut pipe:1 \
 | ffmpeg \
   -f nut \
@@ -43,4 +43,4 @@ ffmpeg \
     -preset ultrafast \
     -color_range 2 \
   -c:a copy \
-  "${1}.mkv"
+  "${1}.${container}"
