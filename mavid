@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# mavid - make video
+#
+# Record screencasts of X11 screen or window
+
+
+# get X window ID
+xwid="$(xwininfo | grep 'Window id:' | awk '{print $4}')"
+
+# use gstreamer to capture video of that X window
+gst-launch-1.0 \
+  ximagesrc xid=${xwid} use-damage=0 \
+  ! videoconvert \
+  ! queue \
+  ! x264enc pass=5 quantizer=26 speed-preset=6 \
+  ! mp4mux fragment-duration=500 \
+  ! filesink location="$1"
